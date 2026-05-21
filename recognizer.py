@@ -1019,6 +1019,7 @@ def organize_results(
         'qseqid', 'DB ID'])  # intialize with these columns so, if it has no rows, at least it has the columns to groupby
     for db in databases:
         print(f'[{i}/{len(databases)}] Handling {db} annotation')
+        i += 1
         len_reports = len(glob(f'{output}/blast/{db}_*_aligned.blast'))
         if len_reports == 0:             # no results
             continue
@@ -1040,7 +1041,6 @@ def organize_results(
         if len(report) > 0:
             all_reports = pd.concat([all_reports, report])
         multi_sheet_excel(xlsx_report, report, sheet_name=db)
-        i += 1
     if len(all_reports) == 0:
         raise RuntimeError(f"reCOGnizer report is empty! Something likely went haywire!")
     all_reports.sort_values(by=['qseqid', 'DB ID']).to_csv(f'{output}/reCOGnizer_results.tsv', sep='\t', index=False)
