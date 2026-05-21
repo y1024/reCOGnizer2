@@ -24,14 +24,19 @@ from requests import get as requests_get
 import xml.etree.ElementTree as ET
 import re
 
-__version__ = '1.12.0'
+__version__ = '1.12.1'
 
 print_commands = False  # for debugging purposes, can be changed with --debug parameter
 
 prefixes = {            # database name (as in https://www.ncbi.nlm.nih.gov/Structure/bwrpsb/bwrpsb.cgi) to tuple of (PN name, smp prefixes)
-    'NCBI_Curated': ('Cdd_NCBI', ('cd', 'sd')), 'Pfam': ('Pfam', ('pfam')), 'SMART': ('Smart', ('smart')),
-    'KOG': ('Kog', ('KOG')), 'COG': ('Cog', ('COG')), 'PRK': ('Prk', ('CHL', 'MTH', 'NF', 'PHA', 'PLN', 'PRK', 'PTZ')),
-    'TIGR': ('Tigr', ('TIGR'))}
+    'NCBI_Curated': ('Cdd_NCBI', ('cd', 'sd')), 
+    'Pfam': ('Pfam', ('pfam')), 
+    'SMART': ('Smart', ('smart')),
+    'KOG': ('Kog', ('KOG')), 
+    'COG': ('Cog', ('COG')), 
+    'PRK': ('Prk', ('CHL', 'MTH', 'NF', 'PHA', 'PLN', 'PRK', 'PTZ')),
+    'TIGR': ('Tigr', ('TIGR'))
+    }
 
 
 def get_arguments():
@@ -112,15 +117,19 @@ def get_arguments():
     global print_commands
     print_commands = args.debug
 
-    # database inputs check - if custom databases, check if they are in the correct format.
-    # If default databases, check if all are recognized. If using both default and custom, exit.
+    '''
+    Database Inputs Check:
+        - if custom databases, check if they are in the correct format;
+        - if default databases, check if all are recognized;
+        - if using both default and custom, exit. reCOGnizer can't handle that.
+    '''
     if not args.custom_databases:
         for database in args.databases:
             if database not in prefixes.keys():
                 exit(f'Default database {database} not recognized. Must be one of {",".join(prefixes.keys())}. Exiting.')
     else:
         for database in args.databases:
-            if database in prefixes.keys():
+            if database in prefixes.keys():         # user specified custom databases, but also included default databases, which is not allowed because of the different formats. Exiting.
                 exit(f"Default database {database} can't be used with custom databases.")
             if not is_db_good(database):
                 exit(f"Custom database {database} not in correct format. Exiting.")
@@ -244,7 +253,7 @@ def download_resources(directory, quiet=False, test_run=False):
     for location in web_locations:
         filename = location.split('/')[-1]
         if filename == 'cdd.tar.gz' and test_run:  # "test_run" allows CI/CD tests to run on GHA
-            os.rename('reCOGnizer/cicd/cdd.tar.gz', f'{directory}/cdd.tar.gz')
+            shutil.move('reCOGnizer/cicd/cdd.tar.gz', f'{directory}/cdd.tar.gz')
             continue
         if os.path.isfile(f"{directory}/{filename}"):
             print(f"Removing {directory}/{filename}")
@@ -340,7 +349,7 @@ def pn2database(pn, out_dir):
     os.chdir(os.path.dirname(pn))
     pn_name = pn.split('/')[-1].split('.pn')[0]
     run_command(f"makeprofiledb -in {pn_name}.pn -title {pn_name} -out {out_dir}/{pn_name} "
-                f"-max_smp_vol 1000000", print_command=True)
+                f"-max_smp_vol 1000000")
     os.chdir(work_dir)
 
 
@@ -416,7 +425,7 @@ def is_db_good(database, print_warning=True):
                 print(f'{database}.{ext} not found!')
             return False
     # print(f'{database} seems good!')
-    return True
+    return True         # all necessary files were found
 
 
 # ===========================
@@ -494,8 +503,8 @@ def generate_cog2ec_tsv(resources_directory, output):
 def cog2ec(cogblast, resources_directory, cog2ec_tsv):
     if not os.path.isfile(cog2ec_tsv):
         generate_cog2ec_tsv(resources_directory, cog2ec_tsv)
-    cog2ec_df = pd.read_csv(cog2ec_tsv, sep='\t', names=['DB ID',
-                                                         'ec_number'])  # keep the column name as "ec_number" for compatibility with the other databases
+    cog2ec_df = pd.read_csv(cog2ec_tsv, sep='\t', names=[
+        'DB ID', 'ec_number'])          # keep the column name as "ec_number" for compatibility with the other databases
     return pd.merge(cogblast, cog2ec_df, on='DB ID', how='left')
 
 
@@ -745,6 +754,7 @@ def load_relational_tables(resources_directory, tax_file=None):
     fun = pd.read_csv(f'{sys.path[0]}/fun.tsv', sep='\t')
     if tax_file is None:
         return cddid, hmm_pgap, fun, None, None
+    # this part is just for the taxonomy workflow
     taxonomy_df = pd.read_csv(f'{resources_directory}/taxonomy.tsv', sep='\t', index_col='taxid',
                               dtype={'taxid': str, 'name': str, 'rank': str, 'parent_taxid': str})
     taxonomy_df['parent_taxid'] = taxonomy_df['parent_taxid'].fillna('0').apply(lambda x: x.split('.')[0])
@@ -964,7 +974,6 @@ def complete_report(report, db, resources_directory, output, hmm_pgap, fun):
     cols = ['qseqid', 'DB ID', 'product_name', 'DB description', 'ec_number', 'KO', 'CDD ID', 'taxonomic_range_name',
             'taxonomic_range', 'Superfamilies', 'Sites', 'Motifs', 'pident', 'length', 'mismatch', 'gapopen',
             'qstart', 'qend', 'sstart', 'send', 'evalue', 'bitscore']
-    report.to_csv('report.tsv', sep='\t')
     if db in ['NCBI_Curated', 'Pfam', 'PRK', 'TIGR']:
         report = pd.merge(report, hmm_pgap, left_on='DB ID', right_on='source_identifier', how='left')
         if db == 'CDD':
@@ -1006,13 +1015,12 @@ def organize_results(
     timed_message("Organizing annotation results")
     i = 1
     xlsx_report = pd.ExcelWriter(f'{output}/reCOGnizer_results.xlsx', engine='xlsxwriter')
-    all_reports = pd.DataFrame(columns=['qseqid',
-                                        'DB ID'])  # intialize with these columns so if it has no rows, at least it has the columns to groupby
+    all_reports = pd.DataFrame(columns=[
+        'qseqid', 'DB ID'])  # intialize with these columns so, if it has no rows, at least it has the columns to groupby
     for db in databases:
         print(f'[{i}/{len(databases)}] Handling {db} annotation')
-        try:
-            check_output(f'ls {output}/blast/{db}_*_aligned.blast')
-        except:             # no results
+        len_reports = len(glob(f'{output}/blast/{db}_*_aligned.blast'))
+        if len_reports == 0:             # no results
             continue
         run_pipe_command(f'cat {output}/blast/{db}_*_aligned.blast', file=f'{output}/blast/{db}_aligned.blast')
         blast_res = parse_blast(f'{output}/blast/{db}_aligned.blast')
@@ -1033,6 +1041,8 @@ def organize_results(
             all_reports = pd.concat([all_reports, report])
         multi_sheet_excel(xlsx_report, report, sheet_name=db)
         i += 1
+    if len(all_reports) == 0:
+        raise RuntimeError(f"reCOGnizer report is empty! Something likely went haywire!")
     all_reports.sort_values(by=['qseqid', 'DB ID']).to_csv(f'{output}/reCOGnizer_results.tsv', sep='\t', index=False)
     xlsx_report.close()
 
@@ -1079,7 +1089,7 @@ def main():
                 taxonomic_workflow(
                     args.output, args.resources_directory, n_fastas, lineages, all_taxids, prefixes,
                     base, db_hmm_pgap, max_target_seqs=args.max_target_seqs, evalue=args.evalue)
-            elif base in ['COG'] and args.tax_file is not None and args.species_taxids:
+            elif base == 'COG' and args.tax_file is not None and args.species_taxids:
                 cog_taxonomic_workflow(
                     args.output, args.resources_directory, n_fastas, tax_file, args.tax_col, members_df,
                     max_target_seqs=args.max_target_seqs, evalue=args.evalue)
