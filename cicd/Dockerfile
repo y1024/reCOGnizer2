@@ -1,8 +1,7 @@
-FROM continuumio/miniconda3:23.3.1-0
+FROM continuumio/miniconda3:26.3.2-2
 
 RUN git clone https://github.com/iquasere/reCOGnizer.git \
-&& conda install -c conda-forge mamba \
-&& mamba env update --file reCOGnizer/cicd/environment.yml --name base \
+&& conda env update --file reCOGnizer/cicd/environment.yml --name base \
 && bash reCOGnizer/cicd/ci_build.sh \
 && conda clean --all -y
 
