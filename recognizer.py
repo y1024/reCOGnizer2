@@ -224,7 +224,7 @@ def download_resources(directory, quiet=False, test_run=False):
         print(f'Created {directory}/smps')
     web_locations = [
         # Download CDD
-        'ftp://ftp.ncbi.nih.gov/pub/mmdb/cdd/cdd.tar.gz',
+        'ftp://ftp.ncbi.nih.gov/pub/mmdb/cdd/cdd.tar.gz',       # don't change this to cddid_all!!
         'https://ftp.ncbi.nlm.nih.gov/pub/mmdb/cdd/cddid.tbl.gz',
         'https://ftp.ncbi.nlm.nih.gov/pub/mmdb/cdd/cdd.info',  # only for versions
         # RPSBPROC
