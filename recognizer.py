@@ -24,7 +24,7 @@ from requests import get as requests_get
 import xml.etree.ElementTree as ET
 import re
 
-__version__ = '1.12.1'
+__version__ = '1.12.2'
 
 print_commands = False  # for debugging purposes, can be changed with --debug parameter
 
@@ -225,7 +225,7 @@ def download_resources(directory, quiet=False, test_run=False):
     web_locations = [
         # Download CDD
         'ftp://ftp.ncbi.nih.gov/pub/mmdb/cdd/cdd.tar.gz',
-        'https://ftp.ncbi.nlm.nih.gov/pub/mmdb/cdd/cddid_all.tbl.gz',
+        'https://ftp.ncbi.nlm.nih.gov/pub/mmdb/cdd/cddid.tbl.gz',
         'https://ftp.ncbi.nlm.nih.gov/pub/mmdb/cdd/cdd.info',  # only for versions
         # RPSBPROC
         'https://ftp.ncbi.nih.gov/pub/mmdb/cdd/bitscore_specific.txt',
@@ -742,7 +742,7 @@ def validate_prebuilt_database(db_directory, db_prefix):
 
 def load_relational_tables(resources_directory, tax_file=None):
     timed_message('Loading relational tables')
-    cddid = parse_cddid(f'{resources_directory}/cddid_all.tbl')
+    cddid = parse_cddid(f'{resources_directory}/cddid.tbl')
     cddid['CDD ID'] = cddid['CDD ID'].apply(lambda x: f'CDD:{x}')
     hmm_pgap = pd.read_csv(f'{resources_directory}/hmm_PGAP.tsv', sep='\t', usecols=[1, 10, 12, 14, 15])
     hmm_pgap['source_identifier'] = [ide.split('.')[0] for ide in hmm_pgap['source_identifier']]
